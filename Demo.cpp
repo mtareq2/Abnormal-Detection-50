@@ -34,34 +34,44 @@ int main(int argc, char **argv)
 	Mat img_mask[numberOfVideos];
 	Mat img[numberOfVideos];
 	Mat dst(Size(10 * width, 5 * height), CV_8UC3);
+	char * filename = new char[100];
+	int  counter=-1, counter2;
 
-	int counter2;
+
+	for (int it = 0; it < numberOfVideos; it++){
+		++counter;
+		bgs[it] = new PixelBasedAdaptiveSegmenter;
+		blobTracking[it] = new BlobTracking;
+		vehicleCouting[it] = new VehicleCouting;
+
+		
+		if (counter >= 6)
+			counter = 0;
+		sprintf(filename, "C:/Users/mohamedtarek/Desktop/GP Project/Dataset_ Myvideos/test%03d.mp4", counter);
+
+		capture[it] = cvCaptureFromFile(filename);
+		if (!capture[it]){
+			cerr << "Cannot open video!" << endl;
+			return 1;
+		}
+
+		frame_aux[it] = cvQueryFrame(capture[it]);
+		frame[it] = cvCreateImage(cvSize((int)((frame_aux[it]->width*resize_factor) / 100), (int)((frame_aux[it]->height*resize_factor) / 100)), frame_aux[it]->depth, frame_aux[it]->nChannels);
+		//frame[it] = frame_aux[it];
+	}
+
+
+
 	while (key != 'q')
 	{
-		h = 0; w = 640, counter2 = -1;
-		for (int it = 0; it <= 49; it++){
-			char * filename = new char[100];
-			int counter = it;
-			if (it >= 6)
-				counter = 0;
-			sprintf(filename, "C:/Users/mohamedtarek/Desktop/GP Project/Dataset_ Myvideos/test%03d.mp4", counter);
-
-			capture[it] = cvCaptureFromFile(filename);
-			if (!capture[it]){
-				cerr << "Cannot open video!" << endl;
-				return 1;
-			}
-
+		h = 0; w = 640; counter2 = -1;
+		for (int it = 0; it < numberOfVideos; it++){
 
 			frame_aux[it] = cvQueryFrame(capture[it]);
 			if (!frame_aux[it]) break;
 
-			frame[it] = cvCreateImage(cvSize((int)((frame_aux[it]->width*resize_factor) / 100), (int)((frame_aux[it]->height*resize_factor) / 100)), frame_aux[it]->depth, frame_aux[it]->nChannels);
-			frame[it] = frame_aux[it];
-
-			bgs[it] = new PixelBasedAdaptiveSegmenter;
-			blobTracking[it] = new BlobTracking;
-			vehicleCouting[it] = new VehicleCouting;
+			//b n resize el frame_aux 3la ad el frame 3lshan yt7t f el frame
+			cvResize(frame_aux[it], frame[it]);
 
 			img[it].create(Size(width, height), CV_8UC3);
 
@@ -89,6 +99,13 @@ int main(int argc, char **argv)
 						++h;
 						counter2 = 0;
 					}
+
+					
+				// Perform vehicle counting
+				vehicleCouting[it]->setInput(img_blob[it]);
+				vehicleCouting[it]->setTracks(blobTracking[it]->getTracks());
+				vehicleCouting[it]->process();
+
 					// Copy first image to dst
 					Mat imgPanelRoi(dst, Rect(counter2*w, h*img[it].size().height, img[it].size().width, img[it].size().height));
 					img[it].copyTo(imgPanelRoi);
@@ -104,10 +121,6 @@ int main(int argc, char **argv)
 
 				}
 
-				// Perform vehicle counting
-				vehicleCouting[it]->setInput(img_blob[0]);
-				vehicleCouting[it]->setTracks(blobTracking[0]->getTracks());
-				vehicleCouting[it]->process();
 
 			}// end if mask
 			waitKey(5);
