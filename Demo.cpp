@@ -11,12 +11,16 @@
 using namespace std;
 using namespace cv;
 
+void OffsetImage(Mat &image, cv::Scalar bordercolour, int xoffset, int yoffset);
+
 int main(int argc, char **argv)
 {
-
-	int const numberOfVideos = 50;
+	//Total number of videos
+	int const numberOfVideos = 12;
+	int const numberOfCols = 10, numberOfRows = 5;
 	// resize_factor: 50% of original image
-	int resize_factor = 100, width = 640, height = 480, key = 0, h, w;
+	//P.S: hat3'yr el width w el height hayt3'er f el dst msh hatl7zo f el destination
+	int resize_factor = 100, width = 600, height = 240, key = 0, h, w;
 
 	CvCapture *capture[numberOfVideos] = { 0 };
 	IplImage *frame_aux[numberOfVideos];
@@ -30,25 +34,28 @@ int main(int argc, char **argv)
 	BlobTracking* blobTracking[numberOfVideos];
 	/* Vehicle Counting Algorithm */
 	VehicleCouting* vehicleCouting[numberOfVideos];
+
 	Mat img_input[numberOfVideos];
 	Mat img_mask[numberOfVideos];
 	Mat img[numberOfVideos];
-	Mat dst(Size(10 * width, 5 * height), CV_8UC3);
+
+	//Destination image: big img contains all videos frames. 5 rows 10 cols (10 imgs in each row) 
+	Mat dst(Size(numberOfCols * width, numberOfRows * height), CV_8UC3);
+
 	char * filename = new char[100];
-	int  counter=-1, counter2;
+	int  counter = -1, counter2;
 
-
+	//loop numberOfVideos times initialize bgs and other AND get first frame for each video
 	for (int it = 0; it < numberOfVideos; it++){
 		++counter;
 		bgs[it] = new PixelBasedAdaptiveSegmenter;
 		blobTracking[it] = new BlobTracking;
 		vehicleCouting[it] = new VehicleCouting;
 
-		
 		if (counter >= 6)
 			counter = 0;
-		sprintf(filename, "C:/Users/mohamedtarek/Desktop/GP Project/Dataset_ Myvideos/test%03d.mp4", counter);
 
+		sprintf(filename, "C:/Users/mohamedtarek/Desktop/GP Project/Dataset_ Myvideos/test%03d.mp4", counter);
 		capture[it] = cvCaptureFromFile(filename);
 		if (!capture[it]){
 			cerr << "Cannot open video!" << endl;
@@ -60,11 +67,9 @@ int main(int argc, char **argv)
 		//frame[it] = frame_aux[it];
 	}
 
-
-
 	while (key != 'q')
 	{
-		h = 0; w = 640; counter2 = -1;
+		h = 0; w = width; counter2 = -1;
 		for (int it = 0; it < numberOfVideos; it++){
 
 			frame_aux[it] = cvQueryFrame(capture[it]);
@@ -82,6 +87,7 @@ int main(int argc, char **argv)
 			// bgs->process(...) method internally shows the foreground mask image   
 			bgs[it]->process(img_input[it], img_mask[it]);
 
+
 			if (!img_mask[it].empty())
 			{
 				// Perform blob tracking
@@ -93,23 +99,28 @@ int main(int argc, char **argv)
 
 					// cout << "dst " << dst->width << " " << dst->height << "\nimg1 " << img1.width << " " << img1.height << "\nimg2 " << img2.width << " " << img2.height << endl;
 
-					resize(img[it], img[it], Size(640, 480));
-					//cout << it << "\n";
+
+					//if we reached the maximum width go to the next row
 					if (it != 0 && it % 10 == 0){
 						++h;
 						counter2 = 0;
 					}
 
-					
-				// Perform vehicle counting
-				vehicleCouting[it]->setInput(img_blob[it]);
-				vehicleCouting[it]->setTracks(blobTracking[it]->getTracks());
-				vehicleCouting[it]->process();
+					resize(img[it], img[it], Size(width, height));
 
-					// Copy first image to dst
-					Mat imgPanelRoi(dst, Rect(counter2*w, h*img[it].size().height, img[it].size().width, img[it].size().height));
+
+					// Perform vehicle counting
+					vehicleCouting[it]->setInput(img_blob[it]);
+					vehicleCouting[it]->setTracks(blobTracking[it]->getTracks());
+					vehicleCouting[it]->process();
+
+					// Copy image to spesfic rectanle region(x,y,width,height) in the dst image 
+					//Mat imgPanelRoi(dst, Rect(counter2*w, h*img[it].size().height, img[it].size().width, img[it].size().height));
+					Mat imgPanelRoi(dst, Rect(counter2*w, h*height, width, height));
+
+					//OffsetImage(img[it], Scalar(200,0,0), 0, 0);
+					//img[it](Rect(0, 0, img[it].size().width, img[it].size().height)).setTo(Scalar(200, 0, 0));
 					img[it].copyTo(imgPanelRoi);
-
 
 					/*IplImage *destination = cvCreateImage(cvSize(1300, 650), dst->depth, dst->nChannels);
 					cvResize(dst, destination);*/
@@ -117,7 +128,9 @@ int main(int argc, char **argv)
 					Mat destination;
 					destination.create(Size(1300, 650), dst.type());
 					resize(dst, destination, destination.size());
-					imshow("dst", destination);
+					imshow("destination", destination);
+					imshow("dst", dst);
+
 
 				}
 
@@ -138,4 +151,12 @@ int main(int argc, char **argv)
 		cvReleaseCapture(&capture[i]);
 
 	return 0;
+}
+
+void OffsetImage(Mat &image, cv::Scalar bordercolour, int xoffset, int yoffset)
+{
+	Mat temp(image.rows + 2 * yoffset, image.cols + 2 * xoffset, image.type(), bordercolour);
+	Mat roi(temp(cvRect(xoffset, yoffset, image.cols, image.rows)));
+	image.copyTo(roi);
+	image = temp.clone();
 }
