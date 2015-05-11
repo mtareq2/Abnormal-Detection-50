@@ -1,14 +1,17 @@
-#include <iostream>
+#include <stdio.h>
+#include<stdlib.h>
+
 #include <opencv/cv.h>
 #include<vector>
 #include <opencv2/core/core.hpp>
 #include <opencv2/highgui/highgui.hpp>
+#include <opencv2/imgproc/imgproc.hpp>
 
 #include "package_bgs/pt/PixelBasedAdaptiveSegmenter.h"
 #include "package_tracking/BlobTracking.h"
 #include "package_analysis/VehicleCouting.h"
 
-using namespace std;
+
 using namespace cv;
 
 void OffsetImage(Mat &image, cv::Scalar bordercolour, int xoffset, int yoffset);
@@ -16,8 +19,9 @@ void OffsetImage(Mat &image, cv::Scalar bordercolour, int xoffset, int yoffset);
 int main(int argc, char **argv)
 {
 	//Total number of videos
-	int const numberOfVideos = 12;
+	int const numberOfVideos = 11;
 	int const numberOfCols = 10, numberOfRows = 5;
+	int top, bottom, left, right;
 	// resize_factor: 50% of original image
 	//P.S: hat3'yr el width w el height hayt3'er f el dst msh hatl7zo f el destination
 	int resize_factor = 100, width = 600, height = 240, key = 0, h, w;
@@ -58,7 +62,7 @@ int main(int argc, char **argv)
 		sprintf(filename, "C:/Users/mohamedtarek/Desktop/GP Project/Dataset_ Myvideos/test%03d.mp4", counter);
 		capture[it] = cvCaptureFromFile(filename);
 		if (!capture[it]){
-			cerr << "Cannot open video!" << endl;
+			printf("Cannot open video!");
 			return 1;
 		}
 
@@ -106,8 +110,15 @@ int main(int argc, char **argv)
 						counter2 = 0;
 					}
 
-					resize(img[it], img[it], Size(width, height));
+					//size of the borders (top, bottom, left and right). We give them a value of 3% the size of src
+					top = (int)(0.03*img[it].rows);
+					bottom = (int)(0.03*img[it].rows);
+					left = (int)(0.03*img[it].cols);
+					right = (int)(0.03*img[it].cols);
 
+					copyMakeBorder(img[it], img[it], top, bottom, left, right, BORDER_CONSTANT, Scalar(0,0,0));
+					resize(img[it], img[it], Size(width, height));
+					
 
 					// Perform vehicle counting
 					vehicleCouting[it]->setInput(img_blob[it]);
